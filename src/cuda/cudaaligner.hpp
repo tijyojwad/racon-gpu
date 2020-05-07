@@ -16,7 +16,7 @@
 namespace racon {
 
 class CUDABatchAligner;
-std::unique_ptr<CUDABatchAligner> createCUDABatchAligner(uint32_t max_query_size, uint32_t max_target_size, uint32_t max_alignments, uint32_t device_id);
+std::unique_ptr<CUDABatchAligner> createCUDABatchAligner(uint32_t max_query_size, uint32_t max_target_size, uint32_t max_alignments, uint32_t device_id, int64_t max_gpu_memory);
 
 class CUDABatchAligner
 {
@@ -68,10 +68,10 @@ class CUDABatchAligner
 
         // Builder function to create a new CUDABatchAligner object.
         friend std::unique_ptr<CUDABatchAligner>
-        createCUDABatchAligner(uint32_t max_query_size, uint32_t max_target_size, uint32_t max_alignments, uint32_t device_id);
+        createCUDABatchAligner(uint32_t max_query_size, uint32_t max_target_size, uint32_t max_alignments, uint32_t device_id, int64_t max_gpu_memory);
 
     protected:
-        CUDABatchAligner(uint32_t max_query_size, uint32_t max_target_size, uint32_t max_alignments, uint32_t device_id);
+        CUDABatchAligner(uint32_t max_query_size, uint32_t max_target_size, uint32_t max_alignments, uint32_t device_id, int64_t max_gpu_memory);
         CUDABatchAligner(const CUDABatchAligner&) = delete;
         const CUDABatchAligner& operator=(const CUDABatchAligner&) = delete;
 

@@ -15,18 +15,21 @@ std::atomic<uint32_t> CUDABatchAligner::batches;
 std::unique_ptr<CUDABatchAligner> createCUDABatchAligner(uint32_t max_query_size,
                                                          uint32_t max_target_size,
                                                          uint32_t max_alignments,
-                                                         uint32_t device_id)
+                                                         uint32_t device_id,
+                                                         int64_t max_gpu_memory)
 {
     return std::unique_ptr<CUDABatchAligner>(new CUDABatchAligner(max_query_size,
                                                                   max_target_size,
                                                                   max_alignments,
-                                                                  device_id));
+                                                                  device_id,
+                                                                  max_gpu_memory));
 }
 
 CUDABatchAligner::CUDABatchAligner(uint32_t max_query_size,
                                    uint32_t max_target_size,
                                    uint32_t max_alignments,
-                                   uint32_t device_id)
+                                   uint32_t device_id,
+                                   int64_t max_gpu_memory)
     : overlaps_()
     , stream_(0)
 {
@@ -41,7 +44,8 @@ CUDABatchAligner::CUDABatchAligner(uint32_t max_query_size,
                                                           max_alignments,
                                                           claragenomics::cudaaligner::AlignmentType::global_alignment,
                                                           stream_,
-                                                          device_id);
+                                                          device_id,
+                                                          max_gpu_memory);
 }
 
 CUDABatchAligner::~CUDABatchAligner()
