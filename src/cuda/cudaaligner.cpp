@@ -50,6 +50,7 @@ CUDABatchAligner::CUDABatchAligner(uint32_t max_query_size,
 
 CUDABatchAligner::~CUDABatchAligner()
 {
+    aligner_.reset();
     CGA_CU_CHECK_ERR(cudaStreamDestroy(stream_));
 }
 
