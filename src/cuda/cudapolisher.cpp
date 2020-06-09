@@ -211,7 +211,6 @@ void CUDAPolisher::find_overlap_breaking_points(std::vector<std::unique_ptr<Over
         }
 
         batch_aligners_.clear();
-        exit(0);
     }
 
     // This call runs the breaking point detection code for all alignments.
