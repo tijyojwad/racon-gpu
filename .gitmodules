@@ -18,4 +18,5 @@
 	url = https://github.com/rvaser/rampler
 [submodule "vendor/ClaraGenomicsAnalysis"]
 	path = vendor/ClaraGenomicsAnalysis
-	url = https://github.com/clara-genomics/ClaraGenomicsAnalysis
+	url = https://github.com/ahehn-nv/ClaraGenomicsAnalysis
+    branch = ahehn/cudaaligner_banded_myers_improved_memory2
