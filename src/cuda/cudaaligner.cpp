@@ -56,6 +56,10 @@ CUDABatchAligner::~CUDABatchAligner()
 
 bool CUDABatchAligner::addOverlap(Overlap* overlap, std::vector<std::unique_ptr<Sequence>>& sequences)
 {
+    if(overlap->strand_)
+    {
+        sequences[overlap->q_id_]->create_reverse_complement();
+    }
     const char* q = !overlap->strand_ ? &(sequences[overlap->q_id_]->data()[overlap->q_begin_]) :
         &(sequences[overlap->q_id_]->reverse_complement()[overlap->q_length_ - overlap->q_end_]);
     int32_t q_len = overlap->q_end_ - overlap->q_begin_;

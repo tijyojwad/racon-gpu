@@ -181,7 +181,7 @@ void CUDAPolisher::find_overlap_breaking_points(std::vector<std::unique_ptr<Over
             const size_t max_alignments = free_usable_memory / memory_per_alignment;
             int32_t batch_size          = std::min(static_cast<int32_t>(overlaps.size()), static_cast<int32_t>(max_alignments)) / cudaaligner_batches_;
             //batch_size -= 500;
-            batch_size = 3150 / cudaaligner_batches_;
+            batch_size = 10000 / cudaaligner_batches_;
             //batch_size = 315 / cudaaligner_batches_;
             std::cerr << "GPU " << device << ": Aligning " << overlaps.size() << " overlaps (" << max_len << "x" << max_len << ") with batch size " << batch_size << std::endl;
 
