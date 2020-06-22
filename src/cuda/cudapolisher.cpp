@@ -146,49 +146,28 @@ void CUDAPolisher::find_overlap_breaking_points(std::vector<std::unique_ptr<Over
         // and use that to calculate cudaaligner batch size.
 
         // Calculate average length
-        int64_t len_sum = 0;
-        for(uint32_t i = 0; i < overlaps.size(); i++)
+        int32_t max_len = 0;
+        for(const auto& o : overlaps)
         {
-            len_sum += overlaps[i]->length();
+            max_len = std::max(max_len, static_cast<int32_t>(o->length()));
         }
-        int64_t mean = len_sum / overlaps.size();
-
-        // Calculate std deviation
-        int64_t len_sq = 0;
-        for(uint32_t i = 0; i < overlaps.size(); i++)
-        {
-            int32_t len = overlaps[i]->length();
-            len_sq += len * len;
-        }
-
-        int32_t std = sqrt(len_sq / overlaps.size());
-
-        // Assuming lengths are normally distributed, setting cudaaligner
-        // max dimensions to be mean + 3 std deviations.
-        int32_t max_len = mean + 3 * std;
 
         for(int32_t device = 0; device < num_devices_; device++)
         {
             CGA_CU_CHECK_ERR(cudaSetDevice(device));
 
-            int32_t factor = max_len / 1e3; // As a ratio of aligning 1k bases X 1k bases
-            const float memory_per_1k_alignment = 0.21 * 1e6;// Estimation of memory per 1kx1k alignment in bytes
-            float memory_per_alignment = factor * memory_per_1k_alignment;
 
             size_t free, total;
             CGA_CU_CHECK_ERR(cudaMemGetInfo(&free, &total));
-            size_t free_usable_memory = static_cast<float>(free) * 90 / 100; // Using 90% of available memory
-            const size_t max_alignments = free_usable_memory / memory_per_alignment;
-            int32_t batch_size          = std::min(static_cast<int32_t>(overlaps.size()), static_cast<int32_t>(max_alignments)) / cudaaligner_batches_;
-            //batch_size -= 500;
-            batch_size = 10000 / cudaaligner_batches_;
-            //batch_size = 315 / cudaaligner_batches_;
-            std::cerr << "GPU " << device << ": Aligning " << overlaps.size() << " overlaps (" << max_len << "x" << max_len << ") with batch size " << batch_size << std::endl;
-
+            const size_t free_usable_memory = static_cast<float>(free) * 90 / 100; // Using 90% of available memory
+            const int64_t usable_memory_per_aligner = free_usable_memory / cudaaligner_batches_;
+            const int64_t memory_per_alignment = claragenomics::cudaaligner::calc_memory_requirement_per_alignment(max_len, max_len);
+            const int64_t batch_size = usable_memory_per_aligner / memory_per_alignment - 1;
             for(uint32_t batch = 0; batch < cudaaligner_batches_; batch++)
             {
-                batch_aligners_.emplace_back(createCUDABatchAligner(max_len, max_len, batch_size, device, free_usable_memory / cudaaligner_batches_));
+                batch_aligners_.emplace_back(createCUDABatchAligner(max_len, max_len, batch_size, device, usable_memory_per_aligner));
             }
+            std::cerr << "GPU " << device << ": Aligning " << overlaps.size() << " overlaps (" << max_len << "x" << max_len << ") with batch size " << batch_size << std::endl;
         }
 
         logger_->log("[racon::CUDAPolisher::initialize] allocated memory on GPUs for alignment");
