@@ -161,11 +161,12 @@ void CUDAPolisher::find_overlap_breaking_points(std::vector<std::unique_ptr<Over
             CGA_CU_CHECK_ERR(cudaMemGetInfo(&free, &total));
             const size_t free_usable_memory = static_cast<float>(free) * 90 / 100; // Using 90% of available memory
             const int64_t usable_memory_per_aligner = free_usable_memory / cudaaligner_batches_;
-            const int64_t memory_per_alignment = claragenomics::cudaaligner::calc_memory_requirement_per_alignment(max_len, max_len);
+            const int32_t max_bandwidth = 1024;
+            const int64_t memory_per_alignment = claragenomics::cudaaligner::calc_memory_requirement_per_alignment(max_len, max_bandwidth);
             const int64_t batch_size = usable_memory_per_aligner / memory_per_alignment - 1;
             for(uint32_t batch = 0; batch < cudaaligner_batches_; batch++)
             {
-                batch_aligners_.emplace_back(createCUDABatchAligner(max_len, max_len, batch_size, device, usable_memory_per_aligner));
+                batch_aligners_.emplace_back(createCUDABatchAligner(max_len, max_bandwidth, batch_size, device, usable_memory_per_aligner));
             }
             std::cerr << "GPU " << device << ": Aligning " << overlaps.size() << " overlaps (" << max_len << "x" << max_len << ") with batch size " << batch_size << std::endl;
         }
