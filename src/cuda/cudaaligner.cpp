@@ -5,6 +5,7 @@
  */
 
 #include <claragenomics/utils/cudautils.hpp>
+#include <iostream>
 
 #include "cudaaligner.hpp"
 
@@ -108,6 +109,11 @@ void CUDABatchAligner::generate_cigar_strings()
     for(std::size_t a = 0; a < alignments.size(); a++)
     {
         overlaps_[a]->cigar_ = alignments[a]->convert_to_cigar();
+        if(overlaps_[a]->cigar_.empty())
+        {
+            std::cerr << "Encountered empty CIGAR after GPU alignment!" << std::endl;
+            std::exit(1);
+        }
     }
 }
 
