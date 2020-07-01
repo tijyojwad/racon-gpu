@@ -29,7 +29,7 @@ CUDAPolisher::CUDAPolisher(std::unique_ptr<bioparser::Parser<Sequence>> sparser,
     PolisherType type, uint32_t window_length, double quality_threshold,
     double error_threshold, bool trim, int8_t match, int8_t mismatch, int8_t gap,
     uint32_t num_threads, uint32_t cudapoa_batches, bool cuda_banded_alignment,
-    uint32_t cudaaligner_batches)
+    uint32_t cudaaligner_batches, uint32_t cudaaligner_band_width)
         : Polisher(std::move(sparser), std::move(oparser), std::move(tparser),
                 type, window_length, quality_threshold, error_threshold, trim,
                 match, mismatch, gap, num_threads)
@@ -39,6 +39,7 @@ CUDAPolisher::CUDAPolisher(std::unique_ptr<bioparser::Parser<Sequence>> sparser,
         , mismatch_(mismatch)
         , match_(match)
         , cuda_banded_alignment_(cuda_banded_alignment)
+        , cudaaligner_band_width_(cudaaligner_band_width)
 {
     claragenomics::cudapoa::Init();
     claragenomics::cudaaligner::Init();
@@ -183,7 +184,7 @@ void CUDAPolisher::find_overlap_breaking_points(std::vector<std::unique_ptr<Over
             CGA_CU_CHECK_ERR(cudaMemGetInfo(&free, &total));
             const size_t free_usable_memory = static_cast<float>(free) * 90 / 100; // Using 90% of available memory
             const int64_t usable_memory_per_aligner = free_usable_memory / cudaaligner_batches_;
-            const int32_t max_bandwidth = 1024;
+            const int32_t max_bandwidth = cudaaligner_band_width_;
             const int64_t memory_per_alignment = claragenomics::cudaaligner::calc_memory_requirement_per_alignment(max_len, max_bandwidth);
             const int64_t batch_size = usable_memory_per_aligner / memory_per_alignment - 1;
             for(uint32_t batch = 0; batch < cudaaligner_batches_; batch++)
