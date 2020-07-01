@@ -146,11 +146,33 @@ void CUDAPolisher::find_overlap_breaking_points(std::vector<std::unique_ptr<Over
         // and use that to calculate cudaaligner batch size.
 
         // Calculate average length
-        int32_t max_len = 0;
-        for(const auto& o : overlaps)
+        int64_t len_sum = 0;
+        for(uint32_t i = 0; i < overlaps.size(); i++)
         {
-            max_len = std::max(max_len, static_cast<int32_t>(o->length()));
+            len_sum += overlaps[i]->length();
         }
+        int64_t mean = len_sum / overlaps.size();
+
+        // Calculate std deviation
+        int64_t len_sq = 0;
+        for(uint32_t i = 0; i < overlaps.size(); i++)
+        {
+            int32_t len = overlaps[i]->length();
+            len_sq += len * len;
+        }
+
+        int32_t std = sqrt(len_sq / overlaps.size());
+
+        // Assuming lengths are normally distributed, setting cudaaligner
+        // max dimensions to be mean + 3 std deviations.
+        int32_t max_len = mean + 3 * std;
+
+        //// Calculate max length
+        //int32_t max_len = 0;
+        //for(const auto& o : overlaps)
+        //{
+        //    max_len = std::max(max_len, static_cast<int32_t>(o->length()));
+        //}
 
         for(int32_t device = 0; device < num_devices_; device++)
         {
