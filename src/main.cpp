@@ -225,6 +225,9 @@ void help() {
         "        --cudaaligner-batches <int>\n"
         "            default: 0\n"
         "            number of batches for CUDA accelerated alignment per GPU\n"
+        "        --cudaaligner-band-width <int>\n"
+        "            default: 1024\n"
+        "            Band width for cuda alignment\n"
 #endif
     );
 }
