@@ -19,6 +19,7 @@
 static const char* version = RACON_VERSION;
 static const int32_t CUDAALIGNER_INPUT_CODE = 10000;
 static const int32_t CUDAALIGNER_BAND_WIDTH_INPUT_CODE = 10001;
+static const int32_t CUDAALIGNER_ALIGNMENT_CUTOFF_INPUT_CODE = 10002;
 
 static struct option options[] = {
     {"include-unpolished", no_argument, 0, 'u'},
@@ -38,6 +39,7 @@ static struct option options[] = {
     {"cuda-banded-alignment", no_argument, 0, 'b'},
     {"cudaaligner-batches", required_argument, 0, CUDAALIGNER_INPUT_CODE},
     {"cudaaligner-band-width", required_argument, 0, CUDAALIGNER_BAND_WIDTH_INPUT_CODE},
+    {"cudaaligner-gpu-cutoff", required_argument, 0, CUDAALIGNER_ALIGNMENT_CUTOFF_INPUT_CODE},
 #endif
     {0, 0, 0, 0}
 };
@@ -64,6 +66,7 @@ int main(int argc, char** argv) {
     uint32_t cudapoa_batches = 0;
     uint32_t cudaaligner_batches = 0;
     uint32_t cudaaligner_band_width = 1024;
+    uint32_t cudaaligner_gpu_cutoff = 3;
     bool cuda_banded_alignment = false;
 
     std::string optstring = "ufw:q:e:m:x:g:t:h";
@@ -133,6 +136,9 @@ int main(int argc, char** argv) {
             case CUDAALIGNER_BAND_WIDTH_INPUT_CODE:
                 cudaaligner_band_width = atoi(optarg);
                 break;
+            case CUDAALIGNER_ALIGNMENT_CUTOFF_INPUT_CODE:
+                cudaaligner_gpu_cutoff = atoi(optarg);
+                break;
 #endif
             default:
                 exit(1);
@@ -154,7 +160,7 @@ int main(int argc, char** argv) {
         racon::PolisherType::kF, window_length, quality_threshold,
         error_threshold, trim, match, mismatch, gap, num_threads,
         cudapoa_batches, cuda_banded_alignment, cudaaligner_batches,
-        cudaaligner_band_width);
+        cudaaligner_band_width, cudaaligner_gpu_cutoff);
 
     polisher->initialize();
 
@@ -228,6 +234,9 @@ void help() {
         "        --cudaaligner-band-width <int>\n"
         "            default: 1024\n"
         "            Band width for cuda alignment\n"
+        "        --cudaaligner-gpu-cutoff <int>\n"
+        "            default: 3\n"
+        "            Standard deviation cutoff for alignment lengths under which GPU is used\n"
 #endif
     );
 }

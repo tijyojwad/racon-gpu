@@ -108,11 +108,23 @@ void CUDABatchAligner::generate_cigar_strings()
     }
     for(std::size_t a = 0; a < alignments.size(); a++)
     {
+        const std::string& query = alignments[a]->get_query_sequence();
+        const std::string& target = alignments[a]->get_target_sequence();
+        if (query == "")
+        {
+            throw std::runtime_error("query is empty");
+        }
+        if (target == "")
+        {
+            throw std::runtime_error("target is empty");
+        }
+        //std::cout << "query: " << query << ", target: " << target << ", edit: " << alignments[a]->edit_distance() << std::endl;
+        //std::cout << alignments[a]->edit_distance() << std::endl;
         overlaps_[a]->cigar_ = alignments[a]->convert_to_cigar();
         if(overlaps_[a]->cigar_.empty())
         {
-            std::cerr << "Encountered empty CIGAR after GPU alignment!" << std::endl;
-            std::exit(1);
+            //std::cerr << "Encountered empty CIGAR after GPU alignment!" << std::endl;
+            //std::exit(1);
         }
     }
 }

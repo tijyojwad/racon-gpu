@@ -57,6 +57,14 @@ public:
         return length_;
     }
 
+    uint32_t q_length() const {
+        return q_length_;
+    }
+
+    uint32_t t_length() const {
+        return t_length_;
+    }
+
     double error() const {
         return error_;
     }

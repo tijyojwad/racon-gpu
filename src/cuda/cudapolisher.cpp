@@ -29,7 +29,7 @@ CUDAPolisher::CUDAPolisher(std::unique_ptr<bioparser::Parser<Sequence>> sparser,
     PolisherType type, uint32_t window_length, double quality_threshold,
     double error_threshold, bool trim, int8_t match, int8_t mismatch, int8_t gap,
     uint32_t num_threads, uint32_t cudapoa_batches, bool cuda_banded_alignment,
-    uint32_t cudaaligner_batches, uint32_t cudaaligner_band_width)
+    uint32_t cudaaligner_batches, uint32_t cudaaligner_band_width, uint32_t cudaaligner_gpu_cutoff)
         : Polisher(std::move(sparser), std::move(oparser), std::move(tparser),
                 type, window_length, quality_threshold, error_threshold, trim,
                 match, mismatch, gap, num_threads)
@@ -40,6 +40,7 @@ CUDAPolisher::CUDAPolisher(std::unique_ptr<bioparser::Parser<Sequence>> sparser,
         , match_(match)
         , cuda_banded_alignment_(cuda_banded_alignment)
         , cudaaligner_band_width_(cudaaligner_band_width)
+        , cudaaligner_gpu_cutoff_(cudaaligner_gpu_cutoff)
 {
     claragenomics::cudapoa::Init();
     claragenomics::cudaaligner::Init();
@@ -166,7 +167,7 @@ void CUDAPolisher::find_overlap_breaking_points(std::vector<std::unique_ptr<Over
 
         // Assuming lengths are normally distributed, setting cudaaligner
         // max dimensions to be mean + 3 std deviations.
-        int32_t max_len = mean + 3 * std;
+        uint32_t max_len = mean + cudaaligner_gpu_cutoff_ * std;
 
         //// Calculate max length
         //int32_t max_len = 0;
@@ -174,6 +175,18 @@ void CUDAPolisher::find_overlap_breaking_points(std::vector<std::unique_ptr<Over
         //{
         //    max_len = std::max(max_len, static_cast<int32_t>(o->length()));
         //}
+
+        //std::cerr << "Band before " << cudaaligner_band_width_ << std::endl;
+        //// Calculate band width
+        //for(const auto& o : overlaps)
+        //{
+        //    if (o->length() < max_len)
+        //    {
+        //        cudaaligner_band_width_ = std::max(cudaaligner_band_width_,
+        //                static_cast<uint32_t>(std::abs(static_cast<int32_t>(o->q_length() - o->t_length()))));
+        //    }
+        //}
+        //std::cerr << "Band after " << cudaaligner_band_width_ << std::endl;
 
         for(int32_t device = 0; device < num_devices_; device++)
         {
@@ -186,12 +199,12 @@ void CUDAPolisher::find_overlap_breaking_points(std::vector<std::unique_ptr<Over
             const int64_t usable_memory_per_aligner = free_usable_memory / cudaaligner_batches_;
             const int32_t max_bandwidth = cudaaligner_band_width_;
             const int64_t memory_per_alignment = claragenomics::cudaaligner::calc_memory_requirement_per_alignment(max_len, max_bandwidth);
-            const int64_t batch_size = usable_memory_per_aligner / memory_per_alignment - 1;
+            const int64_t batch_size = std::min(usable_memory_per_aligner / memory_per_alignment - 1, static_cast<int64_t>(100000));
+            std::cerr << "GPU " << device << ": Aligning " << overlaps.size() << " overlaps (" << max_len << "x" << max_len << ") with batch size " << batch_size << std::endl;
             for(uint32_t batch = 0; batch < cudaaligner_batches_; batch++)
             {
                 batch_aligners_.emplace_back(createCUDABatchAligner(max_len, max_bandwidth, batch_size, device, usable_memory_per_aligner));
             }
-            std::cerr << "GPU " << device << ": Aligning " << overlaps.size() << " overlaps (" << max_len << "x" << max_len << ") with batch size " << batch_size << std::endl;
         }
 
         logger_->log("[racon::CUDAPolisher::initialize] allocated memory on GPUs for alignment");
@@ -220,6 +233,8 @@ void CUDAPolisher::find_overlap_breaking_points(std::vector<std::unique_ptr<Over
     // Any overlaps that couldn't be processed by the GPU are also handled here
     // by the CPU aligner.
     logger_->log();
+
+    //exit(0);
     Polisher::find_overlap_breaking_points(overlaps);
 }
 
