@@ -222,8 +222,52 @@ void CUDAPolisher::polish(std::vector<std::unique_ptr<Sequence>>& dst,
     }
     else
     {
+        // Get maximum sequence size in windows.
+        int32_t max_seq_size = 0;
+        int64_t total_seq_size = 0;
+        int32_t num_seqs = 0;
+        int32_t max_depth = 0;
+        int32_t total_depth =0;
+        int32_t num_depths = 0;
+        for(const auto& window : windows_)
+        {
+            for(const auto& seq : window->sequences_)
+            {
+                int32_t seq_size = seq.second;
+                if (seq_size > max_seq_size)
+                    max_seq_size = seq_size;
+                total_seq_size += seq_size;
+                num_seqs++;
+            }
+            int32_t depth = window->sequences_.size();
+            if (depth > max_depth)
+                max_depth = depth;
+            total_depth += depth;
+            num_depths++;
+        }
+
+        int64_t avg_seq_size = total_seq_size / static_cast<float>(num_seqs);
+
+        int64_t seq_size_squared = 0;
+        for(const auto& window : windows_)
+        {
+            for(const auto& seq : window->sequences_)
+            {
+                int32_t seq_size = seq.second;
+                seq_size_squared += (seq_size - avg_seq_size) * (seq_size - avg_seq_size);
+            }
+        }
+        int64_t dev = static_cast<int64_t>(std::sqrt(seq_size_squared / num_seqs));
+
+        //std::cerr << "Max seq size is " << max_seq_size << std::endl;
+        //std::cerr << "Avg seq size is " << avg_seq_size << " std dev " << dev << std::endl;
+        //std::cerr << "Max depth is " << max_depth << std::endl;
+        //std::cerr << "Avg depth is " << (total_depth / static_cast<float>(num_depths)) << std::endl;
+
         // Creation and use of batches.
-        const uint32_t MAX_DEPTH_PER_WINDOW = 200;
+        //uint32_t MAX_DEPTH_PER_WINDOW = total_depth / num_depths;
+        //uint32_t MAX_DEPTH_PER_WINDOW = max_depth + 1;
+        uint32_t MAX_DEPTH_PER_WINDOW = 200;
 
         for(int32_t device = 0; device < num_devices_; device++)
         {
@@ -235,7 +279,8 @@ void CUDAPolisher::polish(std::vector<std::unique_ptr<Sequence>>& dst,
             size_t mem_per_batch = 0.9 * free / cudapoa_batches_;
             for(uint32_t batch = 0; batch < cudapoa_batches_; batch++)
             {
-                batch_processors_.emplace_back(createCUDABatch(MAX_DEPTH_PER_WINDOW, device, mem_per_batch, gap_, mismatch_, match_, cuda_banded_alignment_));
+                batch_processors_.emplace_back(createCUDABatch(max_seq_size + 1, MAX_DEPTH_PER_WINDOW, device, mem_per_batch, gap_, mismatch_, match_, cuda_banded_alignment_));
+                //batch_processors_.emplace_back(createCUDABatch(avg_seq_size + 5*dev, MAX_DEPTH_PER_WINDOW, device, mem_per_batch, gap_, mismatch_, match_, cuda_banded_alignment_));
             }
         }
 

@@ -57,6 +57,7 @@ public:
 
 #ifdef CUDA_ENABLED
     friend class CUDABatchProcessor;
+    friend class CUDAPolisher;
 #endif
 private:
     Window(uint64_t id, uint32_t rank, WindowType type, const char* backbone,

@@ -21,7 +21,8 @@ using namespace claraparabricks::genomeworks::cudapoa;
 
 std::atomic<uint32_t> CUDABatchProcessor::batches;
 
-std::unique_ptr<CUDABatchProcessor> createCUDABatch(uint32_t max_window_depth,
+std::unique_ptr<CUDABatchProcessor> createCUDABatch(uint32_t max_seq_size,
+                                                    uint32_t max_window_depth,
                                                     uint32_t device,
                                                     size_t avail_mem,
                                                     int8_t gap,
@@ -29,7 +30,8 @@ std::unique_ptr<CUDABatchProcessor> createCUDABatch(uint32_t max_window_depth,
                                                     int8_t match,
                                                     bool cuda_banded_alignment)
 {
-    return std::unique_ptr<CUDABatchProcessor>(new CUDABatchProcessor(max_window_depth,
+    return std::unique_ptr<CUDABatchProcessor>(new CUDABatchProcessor(max_seq_size,
+                                                                      max_window_depth,
                                                                       device,
                                                                       avail_mem,
                                                                       gap,
@@ -38,7 +40,8 @@ std::unique_ptr<CUDABatchProcessor> createCUDABatch(uint32_t max_window_depth,
                                                                       cuda_banded_alignment));
 }
 
-CUDABatchProcessor::CUDABatchProcessor(uint32_t max_window_depth,
+CUDABatchProcessor::CUDABatchProcessor(uint32_t max_seq_size,
+                                       uint32_t max_window_depth,
                                        uint32_t device,
                                        size_t avail_mem,
                                        int8_t gap,
@@ -49,11 +52,12 @@ CUDABatchProcessor::CUDABatchProcessor(uint32_t max_window_depth,
     , seqs_added_per_window_()
 {
     bid_ = CUDABatchProcessor::batches++;
+    //std::cerr << "max seq size " << max_seq_size << std::endl;
     
     // Create new CUDA stream.
     GW_CU_CHECK_ERR(cudaStreamCreate(&stream_));
 
-    BatchConfig batch_config(1023,
+    BatchConfig batch_config(max_seq_size,
                              max_window_depth,
                              256,
                              cuda_banded_alignment ? BandMode::static_band : BandMode::full_band);
@@ -100,15 +104,44 @@ bool CUDABatchProcessor::addWindow(std::shared_ptr<Window> window)
         rank.emplace_back(i);
     }
 
+    int64_t total_seq_size = 0;
+    for(const auto& seq : window->sequences_)
+    {
+        total_seq_size += seq.second;
+    }
+    int64_t avg_seq_size = total_seq_size / num_seqs;
+    int64_t total_deviation = 0;
+    for (const auto& seq : window->sequences_)
+    {
+        total_deviation += (seq.second - avg_seq_size) * (seq.second - avg_seq_size);
+    }
+    int64_t stddev = std::sqrt(total_deviation / num_seqs);
+
+    //std::sort(rank.begin() + 1, rank.end(), [&](uint32_t lhs, uint32_t rhs) {
+    //        return window->positions_[lhs].first < window->positions_[rhs].first; });
     std::sort(rank.begin() + 1, rank.end(), [&](uint32_t lhs, uint32_t rhs) {
+            return (window->positions_[lhs].second - window->positions_[lhs].first) < (window->positions_[rhs].second - window->positions_[rhs].first); });
+    std::stable_sort(rank.begin() + 1, rank.end(), [&](uint32_t lhs, uint32_t rhs) {
             return window->positions_[lhs].first < window->positions_[rhs].first; });
 
     // Start from index 1 since first sequence has already been added as backbone.
     uint32_t long_seq = 0;
     uint32_t skipped_seq = 0;
+    int32_t first_pos = 0;
+    int32_t last_pos = 0;
+    int64_t max_size = (avg_seq_size + 2 * stddev);
+    //std::cerr << "Max seq size " << max_size << std::endl;
     for(uint32_t j = 1; j < num_seqs; j++)
     {
         uint32_t i = rank.at(j);
+        if (j == 1)
+            first_pos = window->positions_[i].first;
+        if (j == num_seqs - 1)
+            last_pos = window->positions_[i].first;
+        if (window->positions_[i].first > 200)
+            continue;
+        if (window->sequences_[i].second > max_size)
+            continue;
         seq = window->sequences_.at(i);
         qualities = window->qualities_.at(i);
         convertPhredQualityToWeights(qualities.first, qualities.second, all_read_weights[i]);
@@ -120,6 +153,7 @@ bool CUDABatchProcessor::addWindow(std::shared_ptr<Window> window)
         };
         poa_group.push_back(p);
     }
+    //std::cerr << "first_pos " << first_pos << ", last_pos " << last_pos << std::endl;
 
     // Add group to CUDAPOA batch object.
     std::vector<StatusType> entry_status;
