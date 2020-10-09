@@ -90,7 +90,7 @@ void CUDAPolisher::find_overlap_breaking_points(std::vector<std::unique_ptr<Over
             uint32_t count = overlaps.size();
             while(next_overlap_index < count)
             {
-                if (batch->addOverlap(overlaps[next_overlap_index].get(), sequences_))
+                if (!overlaps[next_overlap_index]->cigar().empty() || batch->addOverlap(overlaps[next_overlap_index].get(), sequences_))
                 {
                     next_overlap_index++;
                 }

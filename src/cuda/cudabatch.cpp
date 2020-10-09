@@ -119,25 +119,19 @@ bool CUDABatchProcessor::addWindow(std::shared_ptr<Window> window)
 
     //std::sort(rank.begin() + 1, rank.end(), [&](uint32_t lhs, uint32_t rhs) {
     //        return window->positions_[lhs].first < window->positions_[rhs].first; });
-    std::sort(rank.begin() + 1, rank.end(), [&](uint32_t lhs, uint32_t rhs) {
-            return (window->positions_[lhs].second - window->positions_[lhs].first) < (window->positions_[rhs].second - window->positions_[rhs].first); });
     std::stable_sort(rank.begin() + 1, rank.end(), [&](uint32_t lhs, uint32_t rhs) {
             return window->positions_[lhs].first < window->positions_[rhs].first; });
+    std::sort(rank.begin() + 1, rank.end(), [&](uint32_t lhs, uint32_t rhs) {
+            return (window->positions_[lhs].second - window->positions_[lhs].first) < (window->positions_[rhs].second - window->positions_[rhs].first); });
 
     // Start from index 1 since first sequence has already been added as backbone.
     uint32_t long_seq = 0;
     uint32_t skipped_seq = 0;
-    int32_t first_pos = 0;
-    int32_t last_pos = 0;
     int64_t max_size = (avg_seq_size + 2 * stddev);
     //std::cerr << "Max seq size " << max_size << std::endl;
     for(uint32_t j = 1; j < num_seqs; j++)
     {
         uint32_t i = rank.at(j);
-        if (j == 1)
-            first_pos = window->positions_[i].first;
-        if (j == num_seqs - 1)
-            last_pos = window->positions_[i].first;
         if (window->positions_[i].first > 200)
             continue;
         if (window->sequences_[i].second > max_size)
@@ -153,7 +147,6 @@ bool CUDABatchProcessor::addWindow(std::shared_ptr<Window> window)
         };
         poa_group.push_back(p);
     }
-    //std::cerr << "first_pos " << first_pos << ", last_pos " << last_pos << std::endl;
 
     // Add group to CUDAPOA batch object.
     std::vector<StatusType> entry_status;
